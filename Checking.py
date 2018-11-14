@@ -118,6 +118,6 @@ DicomDf1=pd.DataFrame(dict(enumerate(list(filter(lambda x:x!={},ResultList1)))))
 # Write Result
 Time=datetime.date.today().strftime("%Y%m%d")
 NeedCheckDfFinial.to_excel(os.path.join(RESULTPATH,'NeedCheckDf_Finial%s.xlsx' % Time))
-DicomDf1.to_pickle(os.path.join(RESULTPATH,'DicomDf1_%s.plk' % Time)')
-DicomDf.to_pickle(os.path.join(RESULTPATH,'DicomDf_%s.plk' % Time)')
+DicomDf1.to_pickle(os.path.join(RESULTPATH,'DicomDf1_%s.plk' % Time))
+DicomDf.to_pickle(os.path.join(RESULTPATH,'DicomDf_%s.plk' % Time))
 
