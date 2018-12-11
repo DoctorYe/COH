@@ -1,3 +1,6 @@
+#install.packages('rcompanion')
+library(rcompanion)
+Df=read.csv('C:/Users/nye/Desktop/IRB13278CMB WMH/radiomic_IRB/Salgia/PatientInfAllUseFinial1.csv')
 Nominalvariables_Test=function(Df,Groups,Nominalvariables){
   G=Df[,Groups]
   FinialDf=c()
