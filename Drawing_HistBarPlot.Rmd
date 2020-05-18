@@ -1,0 +1,131 @@
+---
+title: "plot"
+author: "nye"
+date: "5/18/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# from http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(plyr)
+library(grid)
+PlotBar=function(RawTablePath="/Users/ningrongye/Desktop/python/Gene/83_tumor_6_051020.csv",
+                 GeneList=c("hCD47","hCD109","hNOTCH2",'Neg')){
+  tumor<-read.csv(RawTablePath,
+                  header = TRUE)
+#View(tumor)
+## get mean sgrna reads of the ctrl and treatment groups
+  c_mean<-(tumor$c3_s/sum(tumor$c3_s) + tumor$c9_s/sum(tumor$c9_s) )/2
+  t_mean<-(tumor$c3_t/sum(tumor$c3_s) + tumor$c9_t1/sum(tumor$c9_t1)+tumor$c9_t2/sum(tumor$c9_t2) )/3
+
+  tumor['c_mean']<-c_mean*sum(tumor$c3_s)
+  tumor['t_mean']<-t_mean*sum(tumor$c3_s)
+  ##  get mean sgrna reads by gene
+  gene_mean<-group_by(tumor[c('gene','c_mean','t_mean')],gene)%>% summarize_each(funs(mean) )
+  tumor_2<-merge(tumor[,!colnames(tumor)%in%c('c_mean','t_mean')],
+                 gene_mean,by="gene")
+## add sgrna reads of each sgrna with the mean reads normorlized by gene,
+## check the mininal sum, if there is 0, add value 
+##(the value shoudl be less than the smallest one value(expcet0)) 
+## get the treatment/ctrl ratio, log2 ratio and log10 ratio
+  tumor_2['ratio']<-(tumor_2$t_mean.x+tumor_2$t_mean.y+0.1)/(tumor_2$c_mean.x+tumor_2$c_mean.y)
+  tumor_2['log2_ratio']=log2(tumor_2['ratio'])
+  tumor_2['log10_ratio']=log10(tumor_2['ratio'])
+## check the distribution of log2 ratio
+## make the table of log2 ratio frequence distribution,
+  tumor_2['r_cut']=cut(tumor_2$log2_ratio,breaks = 50)
+
+  log2_freq<-count(tumor_2$r_cut)
+  names(log2_freq)[1]<-"r_cut"
+## add colum of frequence to table
+  tumor_6<-merge(tumor_2,log2_freq,by="r_cut")
+
+## make 1D sgrna heatmap, gene by gene.
+  tumor_6['y']=1
+  p2_line=(ggplot(data=filter(tumor_6,
+                      gene%in%GeneList),
+          aes(log2_ratio, y)) 
+    +scale_fill_gradient(low = "gray85",high = "black")
+    +geom_tile(data = tumor_6[colnames(tumor_6)!='gene'],
+               aes(fill= tumor_6$freq ),
+               color="black",
+               alpha=0.5,
+               show.legend = FALSE)
+    +geom_vline(color="red",aes(xintercept = log2_ratio))
+    +facet_grid(gene ~ .))
+  p2_den=(ggplot(data=filter(tumor_6,
+                             gene%in%c("hCD47","hCD109","hNOTCH2",'Neg')),
+                 aes(log2_ratio, y)) 
+          +scale_fill_gradient(low = "gray85",high = "black")
+          +stat_density(data = tumor_6[colnames(tumor_6)!='gene'],
+                        aes(fill = after_stat(density)), 
+                        geom = "raster",
+                        position = "identity")
+          +geom_vline(color="red",aes(xintercept = log2_ratio))
+          +facet_grid(gene ~ .))
+  p1_his=(ggplot(data=tumor_6, aes(log2_ratio, fill =r_cut))
+          +geom_histogram(binwidth = 0.5,show.legend = FALSE)
+          +scale_fill_grey(start = 0.8,end = 0)
+          +theme_set(theme_bw())
+          +theme(panel.grid.major=element_line(colour=NA)))
+  ps=list(p1_his,p2_line,p2_den)
+  names(ps)=c('hist','lines','density')
+  plots <- c(ps, plotlist=NULL)
+  return(plots)
+}
+```
+
+
+```{r }
+TableRaw=read.csv("/Users/ningrongye/Desktop/python/Gene/83_tumor_6_051020.csv",
+                  header = TRUE)
+head(TableRaw)
+```
+```{r}
+a=PlotBar(RawTablePath="/Users/ningrongye/Desktop/python/Gene/83_tumor_6_051020.csv",
+          GeneList=c("hCD47","hCD109","hNOTCH2",'Neg'))
+
+multiplot(a$hist, a$lines,layout=matrix(c(1,1,2,2,2,2,2), ncol=1,byrow=TRUE))
+
+```
